@@ -28,6 +28,23 @@ $title = get_title($TitleID);
 
 print_r($title);
 
+foreach ($title->Result->Items as $title_item)
+{
+	$item = get_item($title_item->ItemID);
+
+	foreach ($item->Result->Parts as $part)
+	{
+		get_part($part->PartID);
+	}
+	
+	foreach ($item->Result->Pages as $page)
+	{
+		get_page($page->PageID);
+	}	
+
+}
+
+
 
 ?>
 

@@ -132,6 +132,20 @@ function output_triples($graph)
 
 	$triples = $serialiser->serialise($graph, 'ntriples');
 
+	return $triples;
+}
+
+//----------------------------------------------------------------------------------------
+function output_jsonld($graph)
+{
+	// Triples 
+	$format = \EasyRdf\Format::getFormat('ntriples');
+
+	$serialiserClass  = $format->getSerialiserClass();
+	$serialiser = new $serialiserClass();
+
+	$triples = $serialiser->serialise($graph, 'ntriples');
+
 	// Remove JSON-style encoding
 	$told = explode("\n", $triples);
 	$tnew = array();
@@ -142,14 +156,6 @@ function output_triples($graph)
 	}
 
 	$triples = join("\n", $tnew);
-	
-	return $triples;
-}
-
-//----------------------------------------------------------------------------------------
-function output_jsonld($graph)
-{
-	$triples = output_triples($graph);
 
 	$context = new stdclass;
 	$context->{'@vocab'} = 'http://schema.org/';
@@ -171,6 +177,12 @@ function output_jsonld($graph)
 	$context->oclcnum = new stdclass;
 	$context->oclcnum->{'@id'} = 'http://purl.org/library/oclcnum';
 
+	$context->doi = new stdclass;
+	$context->doi->{'@id'} = 'http://purl.org/ontology/bibo/doi';
+	
+	$context->Page = new stdclass;
+	$context->Page->{'@id'} = 'http://purl.org/spar/fabio/Page';
+	$context->Page->{'@type'} = '@id';
 
 	// Use same libary as EasyRDF but access directly to output ordered list of authors
 	$nquads = new NQuads();

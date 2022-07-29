@@ -6,6 +6,97 @@ require_once('bhl.php');
 require_once('rdf-utils.php');
 
 
+//----------------------------------------------------------------------------------------
+function page_to_rdf($PageID)
+{
+	$page_data = get_page($PageID);
+	
+	$graph = new \EasyRdf\Graph($page_data->Result->PageUrl);
+	
+	$page = $graph->resource($page_data->Result->PageUrl, 'schema:CreativeWork');
+
+	// fabio:Page
+	$page->addResource('rdf:type', 'http://purl.org/spar/fabio/Page');
+	
+	// page numbers
+	if (isset($page_data->Result->PageNumbers[0]))
+	{
+		if (isset($page_data->Result->PageNumbers[0]->Number) && ($page_data->Result->PageNumbers[0]->Number != ''))
+		{
+			$value = $page_data->Result->PageNumbers[0]->Number;
+			$value = preg_replace('/Page%/', '', $value);
+			$value = preg_replace('/(Pl\.?(ate)?)%/', '$1 ', $value);
+		
+			$page->add('schema:name', $value);
+		}	
+	}
+	
+	// image
+	$page->add('schema:thumbnailUrl', $page_data->Result->ThumbnailUrl);
+			
+	// OCR text	
+	if ($page_data->Result->OcrText != '')
+	{
+		$text = $page_data->Result->OcrText;		
+		$text = mb_convert_encoding($text, 'UTF-8', mb_detect_encoding($text));
+
+		// remove double end of lines
+		$text = preg_replace('/\n\n/', "\n", $text);
+		
+		//$text = preg_replace('/\x0A/', "\n", $text);
+		
+		$page->add('schema:text', $text);
+	}
+	
+	foreach ($page_data->Result->Names as $Name)
+	{
+		// Taxonomic name 
+		$uri = '';
+		
+		if ($uri == '')
+		{
+			if ($Name->NameBankID != '')
+			{
+				$uri = 'urn:lsid:ubio.org:namebank:' . $Name->NameBankID;
+			}
+		}	
+		
+		if ($uri != '')
+		{
+			$taxonName = $graph->resource($uri, 'schema:TaxonName');			
+		}
+		else
+		{
+			$taxonName = create_bnode($graph,  'schema:TaxonName');
+		}
+		
+		// name strings
+		$taxonName->add('schema:name', $Name->NameFound);			
+		if ($Name->NameConfirmed != '')
+		{
+			if ($Name->NameFound != $Name->NameConfirmed)
+			{
+				$taxonName->add('schema:alternateName', $Name->NameConfirmed);
+			}
+		}
+		
+		// page is about this name		
+		$page->addResource('schema:about', $taxonName);
+		
+		
+		// page is about this taxon (EOL)
+		if ($Name->EOLID != '')
+		{
+			$uri = 'https://eol.org/pages/' . $Name->EOLID;
+			$page->addResource('schema:about', $uri);				
+		}
+	
+	}
+	
+	echo output_triples($graph);
+}
+
+//----------------------------------------------------------------------------------------
 function item_to_rdf($ItemID)
 {
 	$item_data = get_item($ItemID);
@@ -37,86 +128,7 @@ function item_to_rdf($ItemID)
 		// pages belong to items
 		$page->addResource('schema:isPartOf', $item);
 		
-		// page numbers
-		if (isset($page_summary->PageNumbers[0]))
-		{
-			if (isset($page_summary->PageNumbers[0]->Number) && ($page_summary->PageNumbers[0]->Number != ''))
-			{
-				$value = $page_summary->PageNumbers[0]->Number;
-				$value = preg_replace('/Page%/', '', $value);
-				$value = preg_replace('/(Pl\.?(ate)?)%/', '$1 ', $value);
-			
-				$page->add('schema:name', $value);
-			}	
-		}
-		
-		// image
-		$page->add('schema:thumbnailUrl', $page_summary->ThumbnailUrl);
-				
-		// need actual page data for text and taxonomic names
-		$page_data = get_page($page_summary->PageID);
-		
-		//print_r($page_data);
-		
-		// OCR text (?)
-		/*
-		if ($page_data->Result->OcrText != '')
-		{
-			$text = $page_data->Result->OcrText;
-			
-			$text = str_replace("\n", "•", $text);
-			
-			$page->add('schema:text', $text);
-		}
-		*/
-		
-		foreach ($page_data->Result->Names as $Name)
-		{
-			// Taxonomic name 
-			$uri = '';
-			
-			if ($uri == '')
-			{
-				if ($Name->NameBankID != '')
-				{
-					$uri = 'urn:lsid:ubio.org:namebank:' . $Name->NameBankID;
-				}
-			}	
-			
-			if ($uri != '')
-			{
-				$taxonName = $graph->resource($uri, 'schema:TaxonName');			
-			}
-			else
-			{
-				$taxonName = create_bnode($graph,  'schema:TaxonName');
-			}
-			
-			// name strings
-			$taxonName->add('schema:name', $Name->NameFound);			
-			if ($Name->NameConfirmed != '')
-			{
-				if ($Name->NameFound != $Name->NameConfirmed)
-				{
-					$taxonName->add('schema:alternateName', $Name->NameConfirmed);
-				}
-			}
-			
-			// relationship
-			
-			$page->addResource('schema:about', $taxonName);
-			
-			
-			// Taxon (EOL)
-			if ($Name->EOLID != '')
-			{
-				$uri = 'https://eol.org/pages/' . $Name->EOLID;
-				$page->addResource('schema:about', $uri);				
-			}
-		
-		}
-				
-
+		page_to_rdf($page_summary->PageID);
 	}		
 	
 	// parts ----------------------------------------------------------------------------
@@ -150,6 +162,18 @@ function item_to_rdf($ItemID)
 		if ($part_summary->Doi != '')
 		{
 			$part->addResource('schema:sameAs', 'https://doi.org/' . $part_summary->Doi);
+			
+			
+			// ORCID style property-value pair
+			$identifier = create_bnode($graph, 'schema:PropertyValue');
+			$identifier->add('schema:propertyID', 'doi');
+			$identifier->add('schema:value', $part_summary->Doi);
+			
+			$part->addResource('schema:identifier', $identifier);
+			
+			// simple value
+			$part->add('http://purl.org/ontology/bibo/doi', $part_summary->Doi);
+			
 		}
 		
 		// to get more info we need the actual part data
@@ -170,6 +194,7 @@ function item_to_rdf($ItemID)
 
 }
 
+//----------------------------------------------------------------------------------------
 function title_to_rdf($TitleID)
 {
 	$title_data = get_title($TitleID);
@@ -202,6 +227,7 @@ function title_to_rdf($TitleID)
 			case 'ISSN':
 				$title->add('schema:issn', $identifier->IdentifierValue);
 
+				// get RDF via resolving OCLC
 				$title->addResource('schema:sameAs','http://www.worldcat.org/issn/' . $identifier->IdentifierValue);
 				
 				// https://portal.issn.org/resource/ISSN/2589-3831?format=json
@@ -221,6 +247,23 @@ function title_to_rdf($TitleID)
 		}	
 	}
 	
+	// do we have a DOI?
+	if ($title_data->Result->Doi != '')
+	{
+		$title->addResource('schema:sameAs', 'https://doi.org/' . $title_data->Result->Doi);
+
+		// ORCID style property-value pair
+		$identifier = create_bnode($graph, 'schema:PropertyValue');
+		$identifier->add('schema:propertyID', 'doi');
+		$identifier->add('schema:value', $title_data->Result->Doi);
+		
+		$title->addResource('schema:identifier', $identifier);
+		
+		// simple value
+		$title->add('http://purl.org/ontology/bibo/doi', $title_data->Result->Doi);		
+	}
+	
+	
 	// items are parts of the title
 	foreach ($title_data->Result->Items as $item_summary)
 	{
@@ -231,13 +274,16 @@ function title_to_rdf($TitleID)
 	echo output_triples($graph);
 }
 
-$ItemID = 51227;
+$ItemID = 51227; // 1914
 
-item_to_rdf($ItemID)
+//item_to_rdf($ItemID); // 1914
 
-//$TitleID = 11516;
+$TitleID = 11516;
 
 //title_to_rdf($TitleID)
+
+page_to_rdf(14779340); // Zalithia euphracta, n. sp.
+
  
  ?>
  
