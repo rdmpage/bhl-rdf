@@ -72,10 +72,47 @@ function item_to_rdf($ItemID)
 		
 		foreach ($page_data->Result->Names as $Name)
 		{
-			print_r($Name);
+			// Taxonomic name 
+			$uri = '';
 			
-			// how to hanfle these, they are both things ands strings
-		
+			if ($uri == '')
+			{
+				if ($Name->NameBankID != '')
+				{
+					$uri = 'urn:lsid:ubio.org:namebank:' . $Name->NameBankID;
+				}
+			}	
+			
+			if ($uri != '')
+			{
+				$taxonName = $graph->resource($uri, 'schema:TaxonName');			
+			}
+			else
+			{
+				$taxonName = create_bnode($graph,  'schema:TaxonName');
+			}
+			
+			// name strings
+			$taxonName->add('schema:name', $Name->NameFound);			
+			if ($Name->NameConfirmed != '')
+			{
+				if ($Name->NameFound != $Name->NameConfirmed)
+				{
+					$taxonName->add('schema:alternateName', $Name->NameConfirmed);
+				}
+			}
+			
+			// relationship
+			
+			$page->addResource('schema:about', $taxonName);
+			
+			
+			// Taxon (EOL)
+			if ($Name->EOLID != '')
+			{
+				$uri = 'https://eol.org/pages/' . $Name->EOLID;
+				$page->addResource('schema:about', $uri);				
+			}
 		
 		}
 				
@@ -128,12 +165,7 @@ function item_to_rdf($ItemID)
 		
 	}
 
-	
-	output($graph);
-	
-	// dump
-	
-
+	echo output_triples($graph);
 
 
 }
@@ -157,8 +189,12 @@ function title_to_rdf($TitleID)
 			break;	
 	}		
 	
+	// title
 	$title->add('schema:name', $title_data->Result->FullTitle);
 	
+	// think about adding alternative titles
+	
+	// identifiers
 	foreach ($title_data->Result->Identifiers as $identifier)
 	{
 		switch ($identifier->IdentifierName)
@@ -191,19 +227,17 @@ function title_to_rdf($TitleID)
 		$item = $graph->resource($item_summary->ItemUrl, 'schema:CreativeWork');
 		$item->addResource('schema:isPartOf', $title);
 	}
-
 	
 	echo output_triples($graph);
-
 }
 
 $ItemID = 51227;
 
-//item_to_rdf($ItemID)
+item_to_rdf($ItemID)
 
-$TitleID = 11516;
+//$TitleID = 11516;
 
-title_to_rdf($TitleID)
+//title_to_rdf($TitleID)
  
  ?>
  

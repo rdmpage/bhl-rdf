@@ -1,4 +1,5 @@
 /vendor/
 /cache/
+/oxigraph/
 cookie.txt
 .DS_Store
