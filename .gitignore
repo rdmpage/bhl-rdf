@@ -1,0 +1,4 @@
+/vendor/
+/cache/
+cookie.txt
+.DS_Store
