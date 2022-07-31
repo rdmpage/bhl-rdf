@@ -36,9 +36,12 @@ graph TD
   page1 --> part1
 
 	page2 --> item1
-	page2 --> part1
+	page2 --> part2
 
   page3 --> item1
+  page3 --> part2
+ 
+  page4 --> item1
 ```
 
 ### Same As
