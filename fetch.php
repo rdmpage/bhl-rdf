@@ -23,6 +23,9 @@ foreach ($item->Result->Pages as $page)
 */
 
 $TitleID = 11516;
+$TitleID = 7414; // journal of the Bombay Natural History Society
+
+$TitleID = 58221; // List of the specimens of lepidopterous insects in the collection of the British Museum
 
 $title = get_title($TitleID);
 
@@ -37,10 +40,13 @@ foreach ($title->Result->Items as $title_item)
 		get_part($part->PartID);
 	}
 	
+	/* don't get pages if we have lots */
+	/*
 	foreach ($item->Result->Pages as $page)
 	{
 		get_page($page->PageID);
-	}	
+	}
+	*/	
 
 }
 

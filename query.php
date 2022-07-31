@@ -11,7 +11,7 @@ $config['sparql_endpoint'] = 'http://localhost:7878/query';
 
 	
 //----------------------------------------------------------------------------------------
-function post($url, $data = '', $accept = 'application/rdf+xml')
+function post_sparql($url, $data = '', $accept = 'application/rdf+xml')
 {
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, $url);
@@ -48,15 +48,11 @@ function post($url, $data = '', $accept = 'application/rdf+xml')
 	}
 	
 	$response = curl_exec($ch);
-	if($response == FALSE) 
-	{
-		$errorText = curl_error($ch);
-		curl_close($ch);
-		die($errorText);
-	}
 	
 	$info = curl_getinfo($ch);
 	$http_code = $info['http_code'];
+	
+	//print_r($info);
 		
 	curl_close($ch);
 	
@@ -64,18 +60,18 @@ function post($url, $data = '', $accept = 'application/rdf+xml')
 }	
 
 //----------------------------------------------------------------------------------------
-function do_query($query, $accept)
+function do_sparql_query($query, $accept)
 {
 	global $config;
 	
-	$response = post($config['sparql_endpoint'], $query, $accept);
+	$response = post_sparql($config['sparql_endpoint'], $query, $accept);
 	
 	return $response;
 	
 }
 
 //----------------------------------------------------------------------------------------
-// construct to get text for a page
+// CONSTRUCT to get text for a page
 function get_page_text($PageID)
 {
 	$query = 'PREFIX schema: <http://schema.org/>
@@ -92,7 +88,7 @@ function get_page_text($PageID)
 	  ?page schema:text ?text .
 	}';
 
-	$triples = do_query($query, 'application/n-triples');
+	$triples = do_sparql_query($query, 'application/n-triples');
 
 	// convert to JSON-LD so we can work with it
 	$context = new stdclass;
@@ -120,20 +116,238 @@ function get_page_text($PageID)
 	return $text;
 }
 
+
+//----------------------------------------------------------------------------------------
+// CONSTRUCT to get page from title, volume, and page
+function get_page_from_triple($TitleID, $volumeNumber, $pageNumber)
+{
+	$result = array();
+
+	$query = 'PREFIX schema: <http://schema.org/>
+	PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+	PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+	PREFIX fabio: <http://purl.org/spar/fabio/>
+	PREFIX bibo: <http://purl.org/ontology/bibo/>
+	CONSTRUCT
+	{
+	  ?page schema:name ?pageName .
+	  ?page rdf:type fabio:Page .
+	  
+	  ?page schema:isPartOf ?part .
+	  ?part schema:name ?name .
+	  ?part bibo:doi ?doi .
+	}
+	WHERE
+	{
+	  VALUES ?title { <https://www.biodiversitylibrary.org/bibliography/' . $TitleID . '> } .
+	  VALUES ?volumeName { "' . $volumeNumber .'" } .
+	  VALUES ?pageName { "' . $pageNumber . '" } .
+	  
+	  ?volume schema:isPartOf ?title .
+	  ?volume rdf:type schema:PublicationVolume .
+	  ?volume schema:name ?volumeName .
+  
+	  ?page schema:isPartOf ?volume .
+	  ?page rdf:type fabio:Page .
+	  ?page schema:name ?pageName .
+	  
+	  OPTIONAL {
+		?page schema:isPartOf ?part .
+		?part rdf:type schema:ScholarlyArticle .
+		?part schema:name ?name .
+		OPTIONAL {
+		  ?part bibo:doi ?doi .
+		}
+	  }	  
+	}';
+	$triples = do_sparql_query($query, 'application/n-triples');
+
+	if ($triples == "")
+	{
+		return $result;
+	}
+
+	// convert to JSON-LD so we can work with it
+	$context = new stdclass;
+	$context->{'@vocab'} = 'http://schema.org/';
+	$context->rdf =  "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+	$context->bibo = "http://purl.org/ontology/bibo/";
+	$context->fabio = "http://purl.org/spar/fabio/";
+	
+	$context->doi = "bibo:doi";
+	$context->page = "fabio:Page";
+	
+	// isPartOf is array
+	$isPartOf = new stdclass;
+	$isPartOf->{'@id'} = "isPartOf";
+	$isPartOf->{'@container'} = "@set";
+	$context->isPartOf = $isPartOf;
+	
+	// id
+	$context->id = '@id';
+
+	// type
+	$context->type = '@type';	
+	
+	// doi
+
+	// Use same libary as EasyRDF but access directly to output ordered list of authors
+	$nquads = new NQuads();
+
+	// And parse them again to a JSON-LD document
+	$quads = $nquads->parse($triples);		
+	$doc = JsonLD::fromRdf($quads);
+	
+	$frame = (object)array(
+			'@context' => $context,
+			'@type' => 'http://purl.org/spar/fabio/Page'
+		);
+	$obj = JsonLD::frame($doc, $frame);
+	
+	if (is_object($obj->{"@graph"}))
+	{
+		$result = array($obj->{"@graph"});
+	}
+	else
+	{
+		$result = $obj->{"@graph"};
+	}
+	return $result;
+}
+
+
+//----------------------------------------------------------------------------------------
+// CONSTRUCT to get part(s) BHL page is part of
+function get_part_from_bhl_page($PageID)
+{
+	$result = array();
+
+	$query = 'PREFIX schema: <http://schema.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX fabio: <http://purl.org/spar/fabio/>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+	CONSTRUCT
+	{
+	  ?page schema:name ?pageName .
+      ?page rdf:type ?type .
+	  
+	  ?page schema:isPartOf ?part .
+	  ?part schema:name ?name .
+	  ?part bibo:doi ?doi .
+	}
+	WHERE
+	{
+	  VALUES ?page { <https://www.biodiversitylibrary.org/page/' . $PageID . '> } .
+      VALUES ?type { fabio:Page }
+	
+		?page rdf:type ?type .
+		?page schema:name ?pageName .
+  
+  		OPTIONAL {
+			?page schema:isPartOf ?part .
+			?part rdf:type schema:ScholarlyArticle .
+			?part schema:name ?name .
+			OPTIONAL {
+			  ?part bibo:doi ?doi .
+			}
+		}
+	}';
+	
+
+	$triples = do_sparql_query($query, 'application/n-triples');
+	
+	if ($triples == "")
+	{
+		return $result;
+	}
+	
+	// convert to JSON-LD so we can work with it
+	$context = new stdclass;
+	$context->{'@vocab'} = 'http://schema.org/';
+	$context->rdf =  "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+	$context->bibo = "http://purl.org/ontology/bibo/";
+	$context->fabio = "http://purl.org/spar/fabio/";
+	
+	$context->doi = "bibo:doi";
+	$context->page = "fabio:Page";
+	
+	// isPartOf is array
+	$isPartOf = new stdclass;
+	$isPartOf->{'@id'} = "isPartOf";
+	$isPartOf->{'@container'} = "@set";
+	$context->isPartOf = $isPartOf;
+	
+	// id
+	$context->id = '@id';
+
+	// type
+	$context->type = '@type';	
+	
+	// doi
+
+	// Use same libary as EasyRDF but access directly to output ordered list of authors
+	$nquads = new NQuads();
+
+	// And parse them again to a JSON-LD document
+	$quads = $nquads->parse($triples);		
+	$doc = JsonLD::fromRdf($quads);
+	
+	$frame = (object)array(
+			'@context' => $context,
+			'@type' => 'http://purl.org/spar/fabio/Page'
+		);
+	$obj = JsonLD::frame($doc, $frame);
+	
+	if (is_object($obj->{"@graph"}))
+	{
+		$result = array($obj->{"@graph"});
+	}
+	else
+	{
+		$result = $obj->{"@graph"};
+	}
+	
+	return $result;
+}
+
 //----------------------------------------------------------------------------------------
 
 
+if (0)
+{
+	$text = get_page_text(14779340);
+	echo $text;
+}
 
-$text = get_page_text(14779340);
+/*
+
+$result = get_page_from_triple(11516, 1914, 269);
+
+print_r($result);
 
 
-echo $text;
+$result = get_page_from_triple(11516, 1922, 102);
+
+print_r($result);
+
+$result = get_part_from_bhl_page(14788065);
+
+print_r($result);
+
+*/
+
+$result = get_page_from_triple(7414, "v.22 (1913)", 162);
+
+print_r($result);
+
+
+$result = get_part_from_bhl_page(48431077);
+
+print_r($result);
 
 
 
 
 
 ?>
-
-
-

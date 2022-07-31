@@ -2,8 +2,9 @@
 
 
 // Generate RDF
-require_once('bhl.php');
-require_once('rdf-utils.php');
+require_once(dirname(__FILE__) . '/bhl.php');
+require_once(dirname(__FILE__) . '/parse-volume.php');
+require_once(dirname(__FILE__) . '/rdf-utils.php');
 
 
 //----------------------------------------------------------------------------------------
@@ -18,6 +19,7 @@ function page_to_rdf($PageID)
 	// fabio:Page
 	$page->addResource('rdf:type', 'http://purl.org/spar/fabio/Page');
 	
+	/*
 	// page numbers
 	if (isset($page_data->Result->PageNumbers[0]))
 	{
@@ -33,6 +35,7 @@ function page_to_rdf($PageID)
 	
 	// image
 	$page->add('schema:thumbnailUrl', $page_data->Result->ThumbnailUrl);
+	*/
 			
 	// OCR text	
 	if ($page_data->Result->OcrText != '')
@@ -42,8 +45,6 @@ function page_to_rdf($PageID)
 
 		// remove double end of lines
 		$text = preg_replace('/\n\n/', "\n", $text);
-		
-		//$text = preg_replace('/\x0A/', "\n", $text);
 		
 		$page->add('schema:text', $text);
 	}
@@ -97,7 +98,7 @@ function page_to_rdf($PageID)
 }
 
 //----------------------------------------------------------------------------------------
-function item_to_rdf($ItemID)
+function item_to_rdf($ItemID, $deep = false)
 {
 	$item_data = get_item($ItemID);
 
@@ -116,20 +117,73 @@ function item_to_rdf($ItemID)
 	// volume name (may need to parse this)
 	if (isset($item_data->Result->Volume) && ($item_data->Result->Volume != ''))
 	{
-		$item->add('schema:name', 			$item_data->Result->Volume);		
-		$item->add('schema:volumeNumber', 	$item_data->Result->Volume);
+		$item->add('schema:name', 			$item_data->Result->Volume);	
+		
+		$parse_result = parse_volume($item_data->Result->Volume);
+		if ($parse_result->parsed)
+		{
+			if (isset($parse_result->volume))
+			{
+				foreach ($parse_result->volume as $volume)
+				{
+					$item->add('schema:volumeNumber', 	$volume);					
+				}
+			}
+
+			if (isset($parse_result->issued))
+			{
+				foreach ($parse_result->issued->{'date-parts'} as $date_parts)
+				{
+					$item->add('schema:datePublished', 	(String)$date_parts[0]);					
+				}
+			}
+		
+		}
+		else
+		{
+			// just use unparsed text
+			$item->add('schema:volumeNumber', 	$item_data->Result->Volume);
+		}
 	}	
 	
+	if (1) // make 0 if we are debgging item-only metadata
+	{
 	// pages -----------------------------------------------------------------------------
 	foreach ($item_data->Result->Pages as $page_summary)
 	{
 		$page = $graph->resource($page_summary->PageUrl, 'schema:CreativeWork');
+		// fabio:Page
+		$page->addResource('rdf:type', 'http://purl.org/spar/fabio/Page');
 		
 		// pages belong to items
 		$page->addResource('schema:isPartOf', $item);
 		
-		page_to_rdf($page_summary->PageID);
-	}		
+		// generate some RDF as we might not have pages themselves
+	
+		// page numbers
+		if (isset($page_summary->PageNumbers[0]))
+		{
+			if (isset($page_summary->PageNumbers[0]->Number) && ($page_summary->PageNumbers[0]->Number != ''))
+			{
+				$value = $page_summary->PageNumbers[0]->Number;
+				$value = preg_replace('/Page%/', '', $value);
+				$value = preg_replace('/(Pl\.?(ate)?)%/', '$1 ', $value);
+		
+				$page->add('schema:name', $value);
+			}	
+		}
+	
+		// image
+		$page->add('schema:thumbnailUrl', $page_summary->ThumbnailUrl);
+		
+		
+		if ($deep)
+		{
+			// do pages, can result in lots of triples including text
+			page_to_rdf($page_summary->PageID);
+		}
+	}	
+	}	
 	
 	// parts ----------------------------------------------------------------------------
 	foreach ($item_data->Result->Parts as $part_summary)
@@ -274,6 +328,7 @@ function title_to_rdf($TitleID)
 	echo output_triples($graph);
 }
 
+/*
 $ItemID = 51227; // 1914
 
 //item_to_rdf($ItemID); // 1914
@@ -283,6 +338,35 @@ $TitleID = 11516;
 //title_to_rdf($TitleID)
 
 page_to_rdf(14779340); // Zalithia euphracta, n. sp.
+*/
+
+if (0)
+{
+	item_to_rdf(121890); //
+
+}
+
+if (1)
+{
+	// Do all files
+	$basedir = $config['cache'];
+	$files = scandir($basedir);
+
+	foreach ($files as $filename)
+	{
+		if (preg_match('/title-(?<id>\d+)\.json$/', $filename, $m))
+		{	
+			title_to_rdf($m['id']);
+		}
+	
+		if (preg_match('/item-(?<id>\d+)\.json$/', $filename, $m))
+		{	
+			item_to_rdf($m['id']);
+		}	
+	}
+}
+
+
 
  
  ?>

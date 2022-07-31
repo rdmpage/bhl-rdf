@@ -19,6 +19,8 @@ curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triple
 curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triples' --data-binary '@item.nt'
 
 curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triples' --data-binary '@page.nt'
+
+curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triples' --data-binary '@all.nt'
 ```
 
 
