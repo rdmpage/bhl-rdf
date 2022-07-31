@@ -1,5 +1,6 @@
 /vendor/
 /cache/
 /oxigraph/
+/junk/
 cookie.txt
 .DS_Store

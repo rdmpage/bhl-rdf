@@ -23,6 +23,23 @@ curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triple
 curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triples' --data-binary '@all.nt'
 ```
 
+## Model
+
+```mermaid
+graph TD
+	item1 --> title
+
+	part1 --> item1
+	part2 --> item1
+ 
+	page1 --> item1
+  page1 --> part1
+
+	page2 --> item1
+	page2 --> part1
+
+  page3 --> item1
+```
 
 ### Same As
 

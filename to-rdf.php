@@ -111,43 +111,7 @@ function item_to_rdf($ItemID, $deep = false)
 	
 	// Items are volumes
 	$item->addResource('rdf:type','schema:PublicationVolume');
-
-	$item->addResource('schema:url', $item_data->Result->ItemUrl );
 	
-	// volume name (may need to parse this)
-	if (isset($item_data->Result->Volume) && ($item_data->Result->Volume != ''))
-	{
-		$item->add('schema:name', 			$item_data->Result->Volume);	
-		
-		$parse_result = parse_volume($item_data->Result->Volume);
-		if ($parse_result->parsed)
-		{
-			if (isset($parse_result->volume))
-			{
-				foreach ($parse_result->volume as $volume)
-				{
-					$item->add('schema:volumeNumber', 	$volume);					
-				}
-			}
-
-			if (isset($parse_result->issued))
-			{
-				foreach ($parse_result->issued->{'date-parts'} as $date_parts)
-				{
-					$item->add('schema:datePublished', 	(String)$date_parts[0]);					
-				}
-			}
-		
-		}
-		else
-		{
-			// just use unparsed text
-			$item->add('schema:volumeNumber', 	$item_data->Result->Volume);
-		}
-	}	
-	
-	if (1) // make 0 if we are debgging item-only metadata
-	{
 	// pages -----------------------------------------------------------------------------
 	foreach ($item_data->Result->Pages as $page_summary)
 	{
@@ -182,7 +146,6 @@ function item_to_rdf($ItemID, $deep = false)
 			// do pages, can result in lots of triples including text
 			page_to_rdf($page_summary->PageID);
 		}
-	}	
 	}	
 	
 	// parts ----------------------------------------------------------------------------
@@ -296,8 +259,7 @@ function title_to_rdf($TitleID)
 				break;
 				
 			default:
-				break;
-		
+				break;		
 		}	
 	}
 	
@@ -317,12 +279,46 @@ function title_to_rdf($TitleID)
 		$title->add('http://purl.org/ontology/bibo/doi', $title_data->Result->Doi);		
 	}
 	
-	
 	// items are parts of the title
 	foreach ($title_data->Result->Items as $item_summary)
 	{
 		$item = $graph->resource($item_summary->ItemUrl, 'schema:CreativeWork');
 		$item->addResource('schema:isPartOf', $title);
+		
+		// add core metadata
+		$item->addResource('schema:url', $item_summary->ItemUrl );
+	
+		// volume name (may need to parse this)
+		if (isset($item_summary->Volume) && ($item_summary->Volume != ''))
+		{
+			// name as is
+			$item->add('schema:name', $item_summary->Volume);	
+		
+			// parse into clean metadata
+			$parse_result = parse_volume($item_summary->Volume);
+			if ($parse_result->parsed)
+			{
+				if (isset($parse_result->volume))
+				{
+					foreach ($parse_result->volume as $volume)
+					{
+						$item->add('schema:volumeNumber', 	$volume);					
+					}
+				}
+				if (isset($parse_result->issued))
+				{
+					foreach ($parse_result->issued->{'date-parts'} as $date_parts)
+					{
+						$item->add('schema:datePublished', 	(String)$date_parts[0]);					
+					}
+				}		
+			}
+			else
+			{
+				// just use unparsed text
+				$item->add('schema:volumeNumber', 	$item_data->Result->Volume);
+			}
+		}				
 	}
 	
 	echo output_triples($graph);
@@ -350,6 +346,7 @@ if (1)
 {
 	// Do all files
 	$basedir = $config['cache'];
+	
 	$files = scandir($basedir);
 
 	foreach ($files as $filename)
@@ -357,12 +354,12 @@ if (1)
 		if (preg_match('/title-(?<id>\d+)\.json$/', $filename, $m))
 		{	
 			title_to_rdf($m['id']);
-		}
-	
+		}	
+		
 		if (preg_match('/item-(?<id>\d+)\.json$/', $filename, $m))
 		{	
 			item_to_rdf($m['id']);
-		}	
+		}			
 	}
 }
 
