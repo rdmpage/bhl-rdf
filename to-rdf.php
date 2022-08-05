@@ -8,7 +8,10 @@ require_once(dirname(__FILE__) . '/rdf-utils.php');
 
 
 //----------------------------------------------------------------------------------------
-function page_to_rdf($PageID)
+// Triples for a page. If $standalone == true then we are calling this independently
+// of any item or title, and so we need to flesh out some extra triples that would 
+// otherwise already be generated.
+function page_to_rdf($PageID, $standalone = true)
 {
 	$page_data = get_page($PageID);
 	
@@ -19,23 +22,26 @@ function page_to_rdf($PageID)
 	// fabio:Page
 	$page->addResource('rdf:type', 'http://purl.org/spar/fabio/Page');
 	
-	/*
-	// page numbers
-	if (isset($page_data->Result->PageNumbers[0]))
+	// If we are generating RDF for the oage independently of its item then we
+	// need some more details
+	if ($standalone)
 	{
-		if (isset($page_data->Result->PageNumbers[0]->Number) && ($page_data->Result->PageNumbers[0]->Number != ''))
+		// page numbers
+		if (isset($page_data->Result->PageNumbers[0]))
 		{
-			$value = $page_data->Result->PageNumbers[0]->Number;
-			$value = preg_replace('/Page%/', '', $value);
-			$value = preg_replace('/(Pl\.?(ate)?)%/', '$1 ', $value);
+			if (isset($page_data->Result->PageNumbers[0]->Number) && ($page_data->Result->PageNumbers[0]->Number != ''))
+			{
+				$value = $page_data->Result->PageNumbers[0]->Number;
+				$value = preg_replace('/Page%/', '', $value);
+				$value = preg_replace('/(Pl\.?(ate)?)%/', '$1 ', $value);
 		
-			$page->add('schema:name', $value);
-		}	
-	}
+				$page->add('schema:name', $value);
+			}	
+		}
 	
-	// image
-	$page->add('schema:thumbnailUrl', $page_data->Result->ThumbnailUrl);
-	*/
+		// image
+		$page->addResource('schema:thumbnailUrl', $page_data->Result->ThumbnailUrl);
+	}
 			
 	// OCR text	
 	if ($page_data->Result->OcrText != '')
@@ -97,6 +103,72 @@ function page_to_rdf($PageID)
 	echo output_triples($graph);
 }
 
+
+//----------------------------------------------------------------------------------------
+// Triples for a a part. If $standalone == true then we are calling this independently
+// of any item or title, and so we need to flesh out some extra triples that would 
+// otherwise already be generated.
+function part_to_rdf($PartID, $standalone = true)
+{
+	$part_data = get_part($PartID);
+
+	$graph = new \EasyRdf\Graph($part_data->Result->PartUrl);
+	$part = $graph->resource($part_data->Result->PartUrl, 'schema:CreativeWork');
+		
+	// specific kind of work
+	switch ($part_data->Result->GenreName)
+	{
+		case 'Article':
+			$part->addResource('rdf:type','schema:ScholarlyArticle');
+			break;
+
+		case 'Chapter':
+			$part->addResource('rdf:type','schema:Chapter');
+			break;
+	
+		default:
+			break;	
+	}		
+	
+	// a part is a part of an item
+	$part->addResource('schema:isPartOf', 'https://www.biodiversitylibrary.org/item/' . $part_data->Result->ItemID);
+	
+	// part name
+	$part->add('schema:name', $part_data->Result->Title);
+	
+	// do we have a DOI?
+	if ($part_data->Result->Doi != '')
+	{
+		$part->addResource('schema:sameAs', 'https://doi.org/' . $part_data->Result->Doi);
+				
+		// ORCID style property-value pair
+		$identifier = create_bnode($graph, 'schema:PropertyValue');
+		$identifier->add('schema:propertyID', 'doi');
+		$identifier->add('schema:value', $part_data->Result->Doi);
+		
+		$part->addResource('schema:identifier', $identifier);
+		
+		// simple value
+		$part->add('http://purl.org/ontology/bibo/doi', $part_data->Result->Doi);
+		
+	}
+	
+	foreach($part_data->Result->Pages as $page_data)
+	{
+		$page = $graph->resource($page_data->PageUrl, 'schema:CreativeWork');
+		$page->addResource('schema:isPartOf', $part);
+		
+		// if adding this as a standalone we need pages as well
+		if ($standalone)
+		{
+			
+		}
+	}		
+
+	
+	echo output_triples($graph);
+}
+
 //----------------------------------------------------------------------------------------
 function item_to_rdf($ItemID, $deep = false)
 {
@@ -122,7 +194,7 @@ function item_to_rdf($ItemID, $deep = false)
 		// pages belong to items
 		$page->addResource('schema:isPartOf', $item);
 		
-		// generate some RDF as we might not have pages themselves
+		// generate core RDF for pages as we might not have pages themselves
 	
 		// page numbers
 		if (isset($page_summary->PageNumbers[0]))
@@ -138,13 +210,13 @@ function item_to_rdf($ItemID, $deep = false)
 		}
 	
 		// image
-		$page->add('schema:thumbnailUrl', $page_summary->ThumbnailUrl);
+		$page->addResource('schema:thumbnailUrl', $page_summary->ThumbnailUrl);
 		
 		
 		if ($deep)
 		{
 			// do pages, can result in lots of triples including text
-			page_to_rdf($page_summary->PageID);
+			page_to_rdf($page_summary->PageID, false);
 		}
 	}	
 	
@@ -342,7 +414,7 @@ if (0)
 
 }
 
-if (1)
+if (0)
 {
 	// Do all files
 	$basedir = $config['cache'];
@@ -361,6 +433,15 @@ if (1)
 			item_to_rdf($m['id']);
 		}			
 	}
+}
+
+if (1)
+{
+	//page_to_rdf(22099786); 
+	
+	part_to_rdf(21039);
+	
+
 }
 
 

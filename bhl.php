@@ -170,7 +170,7 @@ function get_page($PageID, $force = false)
 	
 		$url = 'https://www.biodiversitylibrary.org/api2/httpquery.ashx?' . http_build_query($parameters);
 				
-		echo $url . "\n";
+		//echo $url . "\n";
 
 		$json = get($url);
 		file_put_contents($filename, $json);

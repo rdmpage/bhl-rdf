@@ -25,6 +25,8 @@ curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triple
 
 ## Model
 
+The primary concern is the relationship between a title, its scanned volumes, and the pages and parts within those volumes. Most classic metadata is ignored.
+
 ```mermaid
 graph TD
 	item1 --> title
@@ -44,7 +46,11 @@ graph TD
   page4 --> item1
 ```
 
-### Same As
+### isPartOf
+
+Items (e.g., volumes) are parts of titles (e.g., journals or books), pages are parts of items, and some pages are parts of parts (e.g., articles, book chapters, etc.).
+
+### sameAs
 
 We use `schema:sameAs` to link to various resources, some of which may serve RDF. See [JSON-LD in the wild](https://github.com/rdmpage/wild-json-ld) for a relevant survey.
 

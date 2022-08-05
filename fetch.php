@@ -27,6 +27,13 @@ $TitleID = 7414; // journal of the Bombay Natural History Society
 
 $TitleID = 58221; // List of the specimens of lepidopterous insects in the collection of the British Museum
 
+$TitleID = 53882; // Bulletin of the British Museum (Natural History) Entomology
+
+$TitleID = 112965; // Muelleria: An Australian Journal of Botany
+
+$TitleID = 157010; // Telopea: Journal of plant systematics
+//$TitleID = 128759; // Nuytsia: journal of the Western Australian Herbarium
+
 $title = get_title($TitleID);
 
 print_r($title);
