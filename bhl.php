@@ -51,11 +51,16 @@ function get($url)
 
 
 //----------------------------------------------------------------------------------------
-function get_title($TitleID)
+function get_title($TitleID, $basedir = '')
 {
 	global $config;
 	
-	$filename = $config['cache'] . '/title-' . $TitleID . '.json';
+	if ($basedir == '')
+	{
+		$basedir = $config['cache'];
+	}
+	
+	$filename = $basedir . '/title-' . $TitleID . '.json';
 
 	if (!file_exists($filename))
 	{
@@ -82,12 +87,16 @@ function get_title($TitleID)
 
 
 //----------------------------------------------------------------------------------------
-function get_item($ItemID, $force = false)
+function get_item($ItemID, $force = false, $basedir = '')
 {
 	global $config;
 	
-	// get BHL item
-	$filename = $config['cache'] . '/item-' . $ItemID . '.json';
+	if ($basedir == '')
+	{
+		$basedir = $config['cache'];
+	}
+	
+	$filename = $basedir . '/item-' . $ItemID . '.json';
 
 	if (!file_exists($filename) || $force)
 	{
@@ -117,12 +126,15 @@ function get_item($ItemID, $force = false)
 
 
 //----------------------------------------------------------------------------------------
-function get_part($PartID, $force = false)
+function get_part($PartID, $force = false, $basedir = '')
 {
 	global $config;
 	
-	// get BHL item
-	$filename = $config['cache'] . '/part-' . $PartID . '.json';
+	if ($basedir == '')
+	{
+		$basedir = $config['cache'];
+	}
+	$filename = $basedir . '/part-' . $PartID . '.json';
 
 	if (!file_exists($filename) || $force)
 	{
@@ -150,12 +162,15 @@ function get_part($PartID, $force = false)
 
 
 //----------------------------------------------------------------------------------------
-function get_page($PageID, $force = false)
+function get_page($PageID, $force = false, $basedir = '')
 {
 	global $config;
 	
-	// get BHL item
-	$filename = $config['cache'] . '/page-' . $PageID . '.json';
+	if ($basedir == '')
+	{
+		$basedir = $config['cache'];
+	}
+	$filename = $basedir . '/page-' . $PageID . '.json';
 
 	if (!file_exists($filename) || $force)
 	{
