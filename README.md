@@ -1,7 +1,8 @@
 # Biodiversity Heritage Library in RDF
 
-Crude experiments with BHL in RDF. Emphasis is on simple structure to enable queries to locate articles and taxonomic names. Almost exclusively uses [schema.org](http://schema.org).
+Crude experiments with BHL in RDF. Emphasis is on simple structure to enable queries to locate pages, articles and taxonomic names. Almost exclusively uses [schema.org](http://schema.org). 
 
+Typical use case is resolving a [journal, volume, page] triple to the corresponding page in BHL.
 
 ## Triple store
 
@@ -25,16 +26,17 @@ curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triple
 
 ## Model
 
-The primary concern is the relationship between a title, its scanned volumes, and the pages and parts within those volumes. Most classic metadata is ignored.
+The primary concern is the relationship between a title, its scanned volumes, and the pages and parts within those volumes. Only a small subset of metadata is included, this is all about supporting search.
 
 ```mermaid
 graph TD
 	item1 --> title
+  item2 --> title
+  item3 --> title
 
 	part1 --> item1
 	part2 --> item1
  
-	page1 --> item1
   page1 --> part1
 
 	page2 --> item1
@@ -45,12 +47,26 @@ graph TD
  
   page4 --> item1
 
+  page5 --> item2
+  page6 --> item2
+
+  page7 --> item3
+
+  series1 --> title
+  item1 --> series1
+  item2 --> series1
+
+	series2 --> title
+  item3 --> series2
+
   
 ```
 
 ### Problems with the model
 
 An item may have more than one volume, and each volume may have more than one issue. Hence page numbers within an item may not be unique. The RDF URI is `PageID` so this is only a problem for searches based on page number (they may return multiple hits).
+
+#### Identifying sets of issues in a volume
 
 I’m exploring ways to identify consecutive series of page numbers within an item, see `issues.php`.
 
@@ -182,9 +198,13 @@ I’m exploring ways to identify consecutive series of page numbers within an it
 
 ```
 
+#### series
+
+There are bibliographic units that sit between title and item, such as “series”. Knowing which series a volume (and hence an item) belongs to can be vital for locating pages.
+
 ### isPartOf
 
-Items (e.g., volumes) are parts of titles (e.g., journals or books), pages are parts of items, and some pages are parts of parts (e.g., articles, book chapters, etc.).
+Items (e.g., volumes) are parts of titles (e.g., journals or books), pages are parts of items, and some pages are parts of parts (e.g., articles, book chapters, etc.). Series are part of titles, and items are parts of series.
 
 ### sameAs
 
@@ -198,5 +218,62 @@ We use `schema:sameAs` to link to various resources, some of which may serve RDF
 `http://purl.org/spar/fabio/Page` for `Page`
 
 
+### Queries
+
+#### Series, volume, page (e.g., Ann. Mag. nat. Hist. )
+```
+PREFIX fabio: <http://purl.org/spar/fabio/>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX schema: <http://schema.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT * WHERE {
+  # Ann. Mag. nat. Hist. (3)3: 212.
+  VALUES ?title { <https://www.biodiversitylibrary.org/bibliography/15774> }
+  VALUES ?series_name  { "3"} .
+  VALUES ?volume_number  { "3"} .
+  VALUES ?page_number  { "212"} .
+   
+  ?series schema:isPartOf ?title .
+  ?series rdf:type schema:CreativeWorkSeries . 
+  ?series schema:name ?series_name .
+  
+  ?volume schema:isPartOf ?series .    
+  ?volume schema:isPartOf ?title .  
+  ?volume schema:volumeNumber ?volume_number .
+
+  ?page schema:isPartOf ?volume .
+  ?page rdf:type fabio:Page .
+  ?page schema:name ?page_number .
+  
+} 
+```
+
+#### x
+```
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX schema: <http://schema.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT * WHERE {
+  VALUES ?title { <https://www.biodiversitylibrary.org/bibliography/15774> }
+  ?series schema:isPartOf ?title .
+  ?series rdf:type schema:CreativeWorkSeries . 
+  ?series schema:name "9" .
+  
+  ?volume schema:isPartOf ?series .  
+  
+  ?volume schema:isPartOf ?title .  
+  ?volume schema:name ?name .
+  ?volume schema:volumeNumber ?number .
+  
+  OPTIONAL {
+    ?volume schema:datePublished ?datePublished .
+  }
+  
+ 
+  
+} 
+```
 
 

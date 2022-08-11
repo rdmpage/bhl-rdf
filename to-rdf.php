@@ -53,7 +53,7 @@ function page_to_rdf($PageID, $standalone = true, $basedir = '')
 	// fabio:Page
 	$page->addResource('rdf:type', 'http://purl.org/spar/fabio/Page');
 	
-	// If we are generating RDF for the oage independently of its item then we
+	// If we are generating RDF for the page independently of its item then we
 	// need some more details
 	if ($standalone)
 	{
@@ -273,8 +273,6 @@ function item_to_rdf($ItemID, $deep = false, $basedir = '')
 	}
 
 	echo output_triples($graph);
-
-
 }
 
 //----------------------------------------------------------------------------------------
@@ -332,7 +330,7 @@ function title_to_rdf($TitleID, $basedir = '')
 	// do we have a DOI?
 	if ($title_data->Result->Doi != '')
 	{
-		add_doi($graph, $part, $title_data->Result->Doi);
+		add_doi($graph, $title, $title_data->Result->Doi);
 	}
 	
 	// items are parts of the title
@@ -354,6 +352,20 @@ function title_to_rdf($TitleID, $basedir = '')
 			$parse_result = parse_volume($item_summary->Volume);
 			if ($parse_result->parsed)
 			{
+				// series-----------------------------------------------------------------
+				if (isset($parse_result->{'collection-title'}))
+				{
+					// make this a schema:CreativeWorkSeries
+					foreach ($parse_result->{'collection-title'} as $series_name)
+					{
+						$series = $graph->resource($item_summary->ItemUrl . '#' . $series_name, 'schema:CreativeWorkSeries');
+						$series->add('schema:name', $series_name);
+						$series->addResource('schema:isPartOf', $title);
+						$item->addResource('schema:isPartOf', $series);
+					}
+				}				
+			
+				// volume-----------------------------------------------------------------
 				if (isset($parse_result->volume))
 				{
 					foreach ($parse_result->volume as $volume)
@@ -361,6 +373,8 @@ function title_to_rdf($TitleID, $basedir = '')
 						$item->add('schema:volumeNumber', 	$volume);					
 					}
 				}
+				
+				// date-------------------------------------------------------------------
 				if (isset($parse_result->issued))
 				{
 					foreach ($parse_result->issued->{'date-parts'} as $date_parts)
@@ -404,10 +418,21 @@ if (1)
 	
 	$TitleID = 68619;
 	$TitleID = 8089;
+	$TitleID = 3882;
+	$TitleID = 62014;
+	$TitleID = 15774;
+	$TitleID = 6928;
 	
 	$basedir = $config['cache'] . '/' . $TitleID;
 	
 	$files = scandir($basedir);
+	
+	/*
+	$files = array(
+		'title-15774.json',
+		//'item-84522.json',
+	);
+	*/
 
 	foreach ($files as $filename)
 	{
@@ -422,8 +447,6 @@ if (1)
 		}			
 	}
 }
-
-
 
 if (0)
 {

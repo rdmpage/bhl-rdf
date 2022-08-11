@@ -74,13 +74,29 @@ $titles=array(
 16211, 		// Bulletin of the Brooklyn Entomological Society
 8981, 		// Revue suisse de zoologie
 49392, 49174, 43750, // Stuttgarter Beiträge zur Naturkunde
+
+// think about doing issue mapping for this journal
 7519, 		// Proceedings of the United States National Museum
 
 );
 
+$titles = array(
+3882, // Novitates zoologicae *
+);
+
+$titles = array(
+//15774, // Annals and magazine of natural history*
+62014, // Die Grossschmetterlinge der Erde
+);
+
+$titles = array(
+706, //Curtis
+307, // bot mag
+);
+
 
 $deep = false;
-//$deep = true;
+$deep = true;
 
 $force = false;
 

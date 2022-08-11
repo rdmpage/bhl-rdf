@@ -7,6 +7,11 @@ require_once(dirname(__FILE__) . '/bhl.php');
 //require_once(dirname(__FILE__) . '/parse-volume.php');
 
 $TitleID = 7519;
+$TitleID = 3882;
+$TitleID = 15774;
+$TitleID = 62014;
+$TitleID = 307;
+$TitleID = 6928;
 
 $basedir = $config['cache'] . '/' . $TitleID;
 
