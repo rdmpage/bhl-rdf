@@ -223,7 +223,7 @@ function item_to_rdf($ItemID, $deep = false, $basedir = '')
 		if ($deep)
 		{
 			// do pages, can result in lots of triples including text
-			page_to_rdf($page_summary->PageID, false);
+			page_to_rdf($page_summary->PageID, false, $basedir);
 		}
 	}	
 	
@@ -423,9 +423,15 @@ if (1)
 	$TitleID = 15774;
 	$TitleID = 6928;
 	
+	// Generic names of moths
+	$TitleID = 119777; // v1
+	
 	$basedir = $config['cache'] . '/' . $TitleID;
 	
 	$files = scandir($basedir);
+	
+	$deep = false;
+	$deep = true; // include text and names
 	
 	/*
 	$files = array(
@@ -443,7 +449,7 @@ if (1)
 		
 		if (preg_match('/item-(?<id>\d+)\.json$/', $filename, $m))
 		{	
-			item_to_rdf($m['id'], false, $basedir);
+			item_to_rdf($m['id'], $deep, $basedir);
 		}			
 	}
 }

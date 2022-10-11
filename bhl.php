@@ -4,6 +4,7 @@
 $config['cache']   = dirname(__FILE__) . '/cache';
 $config['BHL_API_KEY'] = '0d4f0303-712e-49e0-92c5-2113a5959159';
 
+$fetch_counter = 1;
 
 //----------------------------------------------------------------------------------------
 function get($url)
@@ -54,6 +55,7 @@ function get($url)
 function get_title($TitleID, $basedir = '')
 {
 	global $config;
+	global $fetch_counter;
 	
 	if ($basedir == '')
 	{
@@ -76,6 +78,8 @@ function get_title($TitleID, $basedir = '')
 
 		$json = get($url);
 		file_put_contents($filename, $json);
+		
+		$fetch_counter++;
 	}
 
 	$json = file_get_contents($filename);
@@ -90,6 +94,7 @@ function get_title($TitleID, $basedir = '')
 function get_item($ItemID, $force = false, $basedir = '')
 {
 	global $config;
+	global $fetch_counter;
 	
 	if ($basedir == '')
 	{
@@ -115,6 +120,8 @@ function get_item($ItemID, $force = false, $basedir = '')
 
 		$json = get($url);
 		file_put_contents($filename, $json);
+		
+		$fetch_counter++;
 	}
 
 	$json = file_get_contents($filename);
@@ -129,6 +136,7 @@ function get_item($ItemID, $force = false, $basedir = '')
 function get_part($PartID, $force = false, $basedir = '')
 {
 	global $config;
+	global $fetch_counter;
 	
 	if ($basedir == '')
 	{
@@ -151,6 +159,8 @@ function get_part($PartID, $force = false, $basedir = '')
 
 		$json = get($url);
 		file_put_contents($filename, $json);
+		
+		$fetch_counter++;
 	}
 
 	$json = file_get_contents($filename);
@@ -165,6 +175,7 @@ function get_part($PartID, $force = false, $basedir = '')
 function get_page($PageID, $force = false, $basedir = '')
 {
 	global $config;
+	global $fetch_counter;
 	
 	if ($basedir == '')
 	{
@@ -185,10 +196,12 @@ function get_page($PageID, $force = false, $basedir = '')
 	
 		$url = 'https://www.biodiversitylibrary.org/api2/httpquery.ashx?' . http_build_query($parameters);
 				
-		//echo $url . "\n";
+		echo $url . "\n";
 
 		$json = get($url);
 		file_put_contents($filename, $json);
+		
+		$fetch_counter++;
 	}
 
 	$json = file_get_contents($filename);

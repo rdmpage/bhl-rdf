@@ -2072,6 +2072,9 @@ $input=array(
 "v.2 (1900-1902)"
 );
 
+$input=array(
+"v.2(1980)",
+);
 
 	$failed = array();
 

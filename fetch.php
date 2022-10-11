@@ -1,6 +1,6 @@
 <?php
 
-// grab data
+// fetch data from BHL and store on disk
 
 require_once('bhl.php');
 
@@ -24,24 +24,26 @@ foreach ($item->Result->Pages as $page)
 
 $TitleID = 11516;	// Transactions of the Entomological Society of London
 
-$TitleID = 7414; 	// journal of the Bombay Natural History Society
-$TitleID = 58221; 	// List of the specimens of lepidopterous insects in the collection of the British Museum
-$TitleID = 53882; 	// Bulletin of the British Museum (Natural History) Entomology
+$TitleID = 7414; 	// journal of the Bombay Natural History Society *
+$TitleID = 58221; 	// List of the specimens of lepidopterous insects in the collection of the British Museum *
+$TitleID = 53882; 	// Bulletin of the British Museum (Natural History) Entomology *
+
 $TitleID = 112965; 	// Muelleria: An Australian Journal of Botany
 $TitleID = 157010; 	// Telopea: Journal of plant systematics
+
 //$TitleID = 128759; // Nuytsia: journal of the Western Australian Herbarium
 
-$TitleID = 44963; 	// Proceedings of the Zoological Society of London
-$TitleID = 45481; 	// Genera insectorum
+$TitleID = 44963; 	// Proceedings of the Zoological Society of London *
+$TitleID = 45481; 	// Genera insectorum *
 
 // to do 
-$TitleID = 116503; 	// Annals of the Transvaal Museum
-$TitleID = 12260; 	// Deutsche entomologische Zeitschrift Iris
+$TitleID = 116503; 	// Annals of the Transvaal Museum *
+$TitleID = 12260; 	// Deutsche entomologische Zeitschrift Iris *
 
-$TitleID = 6525; 	// Proceedings of the Linnean Society of New South Wales
-$TitleID = 168319; 	// Transactions of the Royal Society of South Australia
+$TitleID = 6525; 	// Proceedings of the Linnean Society of New South Wales *
+$TitleID = 168319; 	// Transactions of the Royal Society of South Australia *
 
-$TitleID = 79076; 	// Nota lepidopterologica
+$TitleID = 79076; 	// Nota lepidopterologica *
 
 // bulk
 $titles = array(
@@ -51,7 +53,7 @@ $titles = array(
 8641, // Entomologische Zeitung
 47036, //Jahresbericht des Entomologischen Vereins zu Stettin
 8646, // The Entomologist's monthly magazine
-6928, // Annals of the South African Museum
+6928, // Annals of the South African Museum *
 10088, // Tijdschrift voor entomologie
 );
 
@@ -73,6 +75,7 @@ $titles=array(
 8089, 		// Journal of the New York Entomological Society *
 16211, 		// Bulletin of the Brooklyn Entomological Society
 8981, 		// Revue suisse de zoologie
+
 49392, 49174, 43750, // Stuttgarter Beiträge zur Naturkunde
 
 // think about doing issue mapping for this journal
@@ -86,7 +89,7 @@ $titles = array(
 
 $titles = array(
 //15774, // Annals and magazine of natural history*
-62014, // Die Grossschmetterlinge der Erde
+62014, // Die Grossschmetterlinge der Erde *
 );
 
 $titles = array(
@@ -94,11 +97,59 @@ $titles = array(
 307, // bot mag
 );
 
+// generic names of moths
+$titles = array(
+119777, // vol 1
+119421, // vol 2
+119424, // vol 3
+119597, // vol 4
+119515, // vol 5
+119516, // vol 6
+);
+
+// Exotic Lepidoptera
+$titles = array(
+9241
+);
+
+// Nota lepidopterologica *
+$titles = array(
+79076
+);
+
+
+$titles = array(
+3882, // Novitates zoologicae *
+);
+
+
+$titles=array(
+68619 , 	// Insects of Samoa *
+8089, 		// Journal of the New York Entomological Society *
+16211, 		// Bulletin of the Brooklyn Entomological Society
+8981, 		// Revue suisse de zoologie
+
+49392, 49174, 43750, // Stuttgarter Beiträge zur Naturkunde
+
+// think about doing issue mapping for this journal
+7519, 		// Proceedings of the United States National Museum
+
+);
+
+// // List of the specimens of lepidopterous insects in the collection of the British Museum *
+$titles = array(
+58221
+);
 
 $deep = false;
 $deep = true;
 
 $force = false;
+
+$fetch_counter = 1;
+
+// To do: update PSZ
+//$items = array(97225,91206);
 
 foreach ($titles as $TitleID)
 {
@@ -111,10 +162,8 @@ foreach ($titles as $TitleID)
 		umask($oldumask);
 	}
 
-
 	$title = get_title($TitleID, $dir);
 
-	print_r($title);
 
 	foreach ($title->Result->Items as $title_item)
 	{
@@ -131,6 +180,15 @@ foreach ($titles as $TitleID)
 			foreach ($item->Result->Pages as $page)
 			{
 				get_page($page->PageID, $force, $dir);
+				
+				// Give server a break every 10 items
+				if (($fetch_counter % 10) == 0)
+				{
+					$rand = rand(1000000, 3000000);
+					echo "\n-- ...sleeping for " . round(($rand / 1000000),2) . ' seconds' . "\n\n";
+					usleep($rand);
+				}
+
 			}
 		}
 

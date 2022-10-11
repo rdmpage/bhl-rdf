@@ -1,10 +1,22 @@
-# Biodiversity Heritage Library in RDF
+# Biodiversity Heritage Library in RDF (and SQL)
 
-Crude experiments with BHL in RDF. Emphasis is on simple structure to enable queries to locate pages, articles and taxonomic names. Almost exclusively uses [schema.org](http://schema.org). 
+Crude experiments with BHL in RDF (and SQL).
+
+Both approaches create a local version of the core BHL metadata, down to level of pages and page text. Need to decide whether this is ultimately the better approach, rather than relying on BHL API to find pages.
+
+## SQL
+
+Original work was in RDF, but expanded to include SQL as this is still easier in some ways. SQL generates data for title and item  tables, basic page information (`PageID`, ‘ItemID`, `number`, `text`), and there is a tuple table which has page order, page label, and also an attempt to separate out multiple sequences of page numbers if an item includes more than one volume or issue.
+
+This could also be converted to RDF if we wanted to still go down that route.
+
+## RDF
+
+Emphasis is on simple structure to enable queries to locate pages, articles and taxonomic names. Almost exclusively uses [schema.org](http://schema.org). 
 
 Typical use case is resolving a [journal, volume, page] triple to the corresponding page in BHL.
 
-## Triple store
+### Triple store
 
 Run a local triple store:
 
@@ -24,7 +36,7 @@ curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triple
 curl 'http://localhost:7878/store?default' -H 'Content-Type:application/n-triples' --data-binary '@all.nt'
 ```
 
-## Model
+### Model
 
 The primary concern is the relationship between a title, its scanned volumes, and the pages and parts within those volumes. Only a small subset of metadata is included, this is all about supporting search.
 
@@ -62,13 +74,13 @@ graph TD
   
 ```
 
-### Problems with the model
+#### Problems with the model
 
 An item may have more than one volume, and each volume may have more than one issue. Hence page numbers within an item may not be unique. The RDF URI is `PageID` so this is only a problem for searches based on page number (they may return multiple hits).
 
-#### Identifying sets of issues in a volume
+##### Identifying sets of issues in a volume
 
-I’m exploring ways to identify consecutive series of page numbers within an item, see `issues.php`.
+I’m exploring ways to identify consecutive series of page numbers within an item, see `find-issues.php`.
 
 ```
          I | x              
@@ -198,27 +210,27 @@ I’m exploring ways to identify consecutive series of page numbers within an it
 
 ```
 
-#### series
+##### series
 
 There are bibliographic units that sit between title and item, such as “series”. Knowing which series a volume (and hence an item) belongs to can be vital for locating pages.
 
-### isPartOf
+#### isPartOf
 
 Items (e.g., volumes) are parts of titles (e.g., journals or books), pages are parts of items, and some pages are parts of parts (e.g., articles, book chapters, etc.). Series are part of titles, and items are parts of series.
 
-### sameAs
+#### sameAs
 
 We use `schema:sameAs` to link to various resources, some of which may serve RDF. See [JSON-LD in the wild](https://github.com/rdmpage/wild-json-ld) for a relevant survey.
 
 
-### Other vocabularies
+#### Other vocabularies
 
 `http://purl.org/library/` for `oclcnum`.
 `http://purl.org/ontology/bibo/` for `doi`
 `http://purl.org/spar/fabio/Page` for `Page`
 
 
-### Queries
+#### Queries
 
 #### Series, volume, page (e.g., Ann. Mag. nat. Hist. )
 ```
@@ -249,7 +261,7 @@ SELECT * WHERE {
 } 
 ```
 
-#### x
+##### Volumes in a series
 ```
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX schema: <http://schema.org/>
@@ -270,10 +282,116 @@ SELECT * WHERE {
   OPTIONAL {
     ?volume schema:datePublished ?datePublished .
   }
-  
- 
-  
+
 } 
 ```
+
+##### Find occurrences of a name
+
+```
+PREFIX schema: <http://schema.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT * WHERE {
+  ?tx schema:name "Abablemma" .
+  ?page schema:about ?tx .
+  ?page schema:name ?page_name .
+} LIMIT 10
+```
+
+##### Page in IA
+
+```
+PREFIX schema: <http://schema.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX fabio: <http://purl.org/spar/fabio/>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+
+select *
+WHERE
+{ 
+	VALUES ?issn { "1225-0104" } .
+	VALUES ?volumeNumber { "11" } .
+	VALUES ?pageName { "21" } .
+
+	?container schema:issn $issn .
+
+	?volume schema:isPartOf ?container .
+	?volume a schema:PublicationVolume .
+	?volume schema:volumeNumber ?volumeNumber .
+
+	?work schema:isPartOf ?volume .
+	?work a schema:ScholarlyArticle .
+	
+	OPTIONAL {
+		?work bibo:doi ?doi .
+	}	
+
+	?page schema:isPartOf ?work .
+	?page a fabio:Page .
+	?page schema:name ?pageName .
+
+	?page schema:text ?text .	  
+}
+```
+
+##### Volumes for a title
+
+```
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX schema: <http://schema.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT * WHERE {
+  ?volume schema:isPartOf <https://www.biodiversitylibrary.org/bibliography/12260> .
+  
+  ?volume schema:name ?name .
+  ?volume schema:volumeNumber ?number .
+  OPTIONAL {
+    ?volume schema:datePublished ?datePublished .
+  }
+} 
+```
+##### Part
+
+```
+PREFIX schema: <http://schema.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX fabio: <http://purl.org/spar/fabio/>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+	CONSTRUCT
+	{
+	  ?page schema:name ?pageName .
+      ?page rdf:type ?type .
+	  
+	  ?page schema:isPartOf ?part .
+	  ?part schema:name ?name .
+	  ?part bibo:doi ?doi .
+	}
+	WHERE
+	{
+	  VALUES ?page { <https://www.biodiversitylibrary.org/page/14788065> } .
+      VALUES ?type { fabio:Page }
+	?page rdf:type ?type .
+  
+		?page schema:isPartOf ?part .
+		?part rdf:type schema:ScholarlyArticle .
+		?part schema:name ?name .
+		OPTIONAL {
+		  ?part bibo:doi ?doi .
+		}
+	}
+```
+
+##### Describe a page
+
+```
+DESCRIBE <https://www.biodiversitylibrary.org/page/48431077>
+```
+
+
+
 
 
